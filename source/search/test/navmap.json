@@ -1,0 +1,8 @@
+{
+    "route": {
+        "Eifel":[ "Kurzurlaub in der Eifel",["kurzurlaub"], "/index.php?/category/41" ],
+        "misc":[ "Unsortierte Fotos",["diverses"], "/index.php?/category/39" ],
+        "roadtrip-2010":[ "Mit dem Fahrrad nach Holland",["2010"], "/index.php?/category/10" ],
+        "roadtrip-2012":[ "Mit dem Fahrrad nach Holland",["2012"], "/index.php?/category/9" ]
+    }
+}

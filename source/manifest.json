@@ -1,0 +1,37 @@
+{
+
+    "manifest_version": 2,
+    "name": "turbo",
+    "version": "0.0.1",
+    "applications": {
+      "gecko": {
+        "strict_min_version": "52.0a1"
+      }
+    },
+    "description": "superfast navigation via fulltext search",
+  
+    "permissions": [
+      "*://*/navmap.json",
+      "webNavigation",
+      "tabs"
+    ],
+
+    "omnibox": { "keyword" : ">" },
+
+    "background": {
+      "scripts": [
+        "search/source/search.js",
+        "background.js"
+      ]
+    },
+
+    "icons": {
+      "32": "icons/turbo-30.png",
+      "8": "icons/turbo-30.png",
+      "16": "icons/turbo-30.png",
+      "48": "icons/turbo-30.png",
+      "96": "icons/turbo-30.png"
+    }
+    
+  }
+  
