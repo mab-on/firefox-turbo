@@ -2,7 +2,7 @@
 
     "manifest_version": 2,
     "name": "turbo",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "applications": {
       "gecko": {
         "strict_min_version": "52.0a1"

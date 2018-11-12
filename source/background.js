@@ -1,11 +1,24 @@
 
-const index = new Index();
 
-var routes;
 const ROUTE_DESCRIPTION = 0;
 const ROUTE_TAGS = 1;
 const ROUTE_TARGET = 2;
 
+const STATE_UNINITIALIZED = 0;
+const STATE_EMPTY = 1;
+const STATE_LOADED = 2;
+
+var instances = {};
+function getInstance(hostname) {
+    if(!instances.hasOwnProperty(hostname) ) {
+        instances[hostname] = {
+            "routes": {},
+            "index": new Index(),
+            "state": STATE_UNINITIALIZED
+        };
+    }
+    return instances[hostname];
+}
 
 browser.webNavigation.onCompleted.addListener(evt => {
     // Filter out any sub-frame related navigation event
@@ -14,6 +27,11 @@ browser.webNavigation.onCompleted.addListener(evt => {
     }
 
     const url = new URL(evt.url);
+    let instance = getInstance(url.hostname);
+    if( instance.state !== STATE_UNINITIALIZED ) return;
+    
+    instance.state = STATE_EMPTY
+    
     let headers = new Headers({"Accept": "application/json"});
     let init = {method: 'GET', headers};
     let request = new Request(url.protocol+"//"+url.hostname+"/navmap.json", init);
@@ -25,7 +43,7 @@ browser.webNavigation.onCompleted.addListener(evt => {
     .then(function(response) {
         if(typeof response === "object" && response.hasOwnProperty("route") && typeof response.route === "object") {
             let routenames = Object.keys(response.route)
-            routes = response.route
+            instance.routes = response.route
             for(let i in routenames) {
                 let name = routenames[i]
                 if(
@@ -34,14 +52,18 @@ browser.webNavigation.onCompleted.addListener(evt => {
                     && response.route[name][ROUTE_TAGS].constructor === Array
                     && typeof response.route[name][ROUTE_TARGET] === "string"
                 ) {
-                    index.add(name, response.route[name][ROUTE_DESCRIPTION])
+                    instance.index.add(name, response.route[name][ROUTE_DESCRIPTION])
                     let tags = response.route[name][ROUTE_TAGS]
                     for(let t in tags) {
                         let tag = tags[t]
-                        if(typeof tag === "string") index.add(name , tag)
+                        if(typeof tag === "string") instance.index.add(name , tag)
                     }
                 }
             }
+            instance.state = STATE_LOADED
+        }
+        else {
+            instance.state = STATE_EMPTY
         }
     });    
   });
@@ -50,27 +72,50 @@ browser.omnibox.setDefaultSuggestion({
     description: `...`
 });
 
+browser.omnibox.onInputStarted.addListener(() => {
+    
+});
+
 // Update the suggestions whenever the input is changed.
-browser.omnibox.onInputChanged.addListener((text, suggest) => {
-    let suggestions = [];
-    let hits = Object.keys(index.search(text))
-    for(i in hits) {
-        let name = hits[i]
-        suggestions.push({
-            "content": name,
-            "description": routes[name][ROUTE_DESCRIPTION]
-        })
-    }
-    suggest(suggestions);
-  });
-  
-  // Open the page based on how the user clicks on a suggestion.
-  browser.omnibox.onInputEntered.addListener((name, disposition) => {
-    let target = routes[name][ROUTE_TARGET]
+browser.omnibox.onInputChanged.addListener((text,suggest) => {
+    
     browser.tabs.query({active:true,currentWindow:true})
     .then(
         function(tabInfo) { 
             let url = new URL(tabInfo[0].url);
+            console.log(url);
+            let instance = getInstance(url.hostname);
+            if( instance.state !== STATE_LOADED ) 
+            {
+                suggest([]);
+                return;
+            }
+
+            let suggestions = [];
+            let hits = Object.keys(instance.index.search(text))
+            for(i in hits) {
+                let name = hits[i]
+                suggestions.push({
+                    "content": name,
+                    "description": instance.routes[name][ROUTE_DESCRIPTION]
+                })
+            }
+            suggest(suggestions);
+        }
+    );
+});
+  
+  // Open the page based on how the user clicks on a suggestion.
+  browser.omnibox.onInputEntered.addListener((name, disposition) => {
+    browser.tabs.query({active:true,currentWindow:true})
+    .then(
+        function(tabInfo) { 
+            let url = new URL(tabInfo[0].url);
+            let instance = getInstance(url.hostname);
+
+            if( instance.state !== STATE_LOADED ) return;
+            
+            let target = instance.routes[name][ROUTE_TARGET];
             switch (disposition) {
                 case "currentTab":
                   browser.tabs.update({"url":url.protocol+"//"+url.hostname+target});
