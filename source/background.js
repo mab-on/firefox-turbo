@@ -9,28 +9,32 @@ const STATE_EMPTY = 1;
 const STATE_LOADED = 2;
 
 var instances = {};
-function getInstance(hostname) {
-    if(!instances.hasOwnProperty(hostname) ) {
-        instances[hostname] = {
+function getInstance(url) {
+    if(!instances.hasOwnProperty(url.hostname) ) {
+        instances[url.hostname] = {
             "routes": {},
             "index": new Index(),
-            "state": STATE_UNINITIALIZED
+            "state": STATE_UNINITIALIZED,
+            "url": url
         };
     }
-    return instances[hostname];
+    instances[url.hostname].url = url;
+    return instances[url.hostname];
 }
 
-browser.webNavigation.onCompleted.addListener(evt => {
-    // Filter out any sub-frame related navigation event
-    if (evt.frameId !== 0) {
-      return;
+var activeInstance;
+function setInstance(url) {
+    activeInstance = getInstance(url);
+    if(activeInstance.state === STATE_UNINITIALIZED) {
+        loadTurbo(url);
     }
-
-    const url = new URL(evt.url);
-    let instance = getInstance(url.hostname);
-    if( instance.state !== STATE_UNINITIALIZED ) return;
     
-    instance.state = STATE_EMPTY
+    browser.omnibox.setDefaultSuggestion({ 
+        description: "type to search in "+Object.keys(activeInstance.routes).length+" documents"
+    });
+}
+
+function loadTurbo(url) {
     
     let headers = new Headers({"Accept": "application/json"});
     let init = {method: 'GET', headers};
@@ -43,7 +47,7 @@ browser.webNavigation.onCompleted.addListener(evt => {
     .then(function(response) {
         if(typeof response === "object" && response.hasOwnProperty("route") && typeof response.route === "object") {
             let routenames = Object.keys(response.route)
-            instance.routes = response.route
+            activeInstance.routes = response.route
             for(let i in routenames) {
                 let name = routenames[i]
                 if(
@@ -52,86 +56,77 @@ browser.webNavigation.onCompleted.addListener(evt => {
                     && response.route[name][ROUTE_TAGS].constructor === Array
                     && typeof response.route[name][ROUTE_TARGET] === "string"
                 ) {
-                    instance.index.add(name, response.route[name][ROUTE_DESCRIPTION])
+                    activeInstance.index.add(name, response.route[name][ROUTE_DESCRIPTION])
                     let tags = response.route[name][ROUTE_TAGS]
                     for(let t in tags) {
                         let tag = tags[t]
-                        if(typeof tag === "string") instance.index.add(name , tag)
+                        if(typeof tag === "string") activeInstance.index.add(name , tag)
                     }
                 }
             }
-            instance.state = STATE_LOADED
+            activeInstance.state = STATE_LOADED
         }
         else {
-            instance.state = STATE_EMPTY
+            activeInstance.state = STATE_EMPTY
         }
-    });    
+    });
+}
+
+browser.tabs.onUpdated.addListener(function(tabId, changeInfo, tabInfo) {
+    let url = new URL(tabInfo.url)
+    if(["http:","https:"].includes(url.protocol)) {
+        setInstance(url);
+    }
+} , {properties:["attention"]});
+
+browser.webNavigation.onCompleted.addListener(evt => {
+    // Filter out any sub-frame related navigation event
+    if (evt.frameId !== 0) {
+      return;
+    }
+    setInstance(new URL(evt.url));
   });
-
-browser.omnibox.setDefaultSuggestion({
-    description: `...`
-});
-
-browser.omnibox.onInputStarted.addListener(() => {
-    
-});
 
 // Update the suggestions whenever the input is changed.
 browser.omnibox.onInputChanged.addListener((text,suggest) => {
-    
-    browser.tabs.query({active:true,currentWindow:true})
-    .then(
-        function(tabInfo) { 
-            let url = new URL(tabInfo[0].url);
-            console.log(url);
-            let instance = getInstance(url.hostname);
-            if( instance.state !== STATE_LOADED ) 
-            {
-                suggest([]);
-                return;
-            }
-
-            let suggestions = [];
-            let hits = Object.keys(instance.index.search(text))
-            for(i in hits) {
-                let name = hits[i]
-                suggestions.push({
-                    "content": name,
-                    "description": instance.routes[name][ROUTE_DESCRIPTION]
-                })
-            }
-            suggest(suggestions);
+    let suggestions = [];
+    if( activeInstance.state === STATE_LOADED ) 
+    {
+        let hits = Object.keys(activeInstance.index.search(text))
+        for(i in hits) {
+            let name = hits[i]
+            suggestions.push({
+                "content": name,
+                "description": activeInstance.routes[name][ROUTE_DESCRIPTION]
+            })
         }
-    );
+    }
+    suggest(suggestions);
+    browser.omnibox.setDefaultSuggestion({ 
+        description: "found in "+suggestions.length+" documents"
+    });
 });
   
-  // Open the page based on how the user clicks on a suggestion.
-  browser.omnibox.onInputEntered.addListener((name, disposition) => {
-    browser.tabs.query({active:true,currentWindow:true})
-    .then(
-        function(tabInfo) { 
-            let url = new URL(tabInfo[0].url);
-            let instance = getInstance(url.hostname);
-
-            if( instance.state !== STATE_LOADED ) return;
-            
-            let target = instance.routes[name][ROUTE_TARGET];
-            switch (disposition) {
-                case "currentTab":
-                  browser.tabs.update({"url":url.protocol+"//"+url.hostname+target});
-                  break;
-                case "newForegroundTab":
-                  // browser.tabs.create({url});
-                  break;
-                case "newBackgroundTab":
-                  // browser.tabs.create({url, active: false});
-                  break;
-              }
-        }
-    );
+// Open the page based on how the user clicks on a suggestion.
+browser.omnibox.onInputEntered.addListener((name, disposition) => {
+    if( activeInstance.state !== STATE_LOADED ) return;
     
+    let target = activeInstance.url.protocol + "//" 
+                + activeInstance.url.hostname
+                + activeInstance.routes[name][ROUTE_TARGET];
     
-  });
+    switch (disposition) {
+        case "currentTab":
+            browser.tabs.update({"url":target});
+            break;
+        case "newForegroundTab":
+            // browser.tabs.create({url});
+            break;
+        case "newBackgroundTab":
+            // browser.tabs.create({url, active: false});
+            break;
+    }   
+});
   
   
   
