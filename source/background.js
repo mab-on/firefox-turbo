@@ -10,16 +10,16 @@ const STATE_LOADED = 2;
 
 var instances = {};
 function getInstance(url) {
-    if(!instances.hasOwnProperty(url.hostname) ) {
-        instances[url.hostname] = {
+    if(!instances.hasOwnProperty(url.host) ) {
+        instances[url.host] = {
             "routes": {},
             "index": new Index(),
             "state": STATE_UNINITIALIZED,
             "url": url
         };
     }
-    instances[url.hostname].url = url;
-    return instances[url.hostname];
+    instances[url.host].url = url;
+    return instances[url.host];
 }
 
 var activeInstance;
@@ -38,7 +38,7 @@ function loadTurbo(url) {
     
     let headers = new Headers({"Accept": "application/json"});
     let init = {method: 'GET', headers};
-    let request = new Request(url.protocol+"//"+url.hostname+"/navmap.json", init);
+    let request = new Request(url.protocol+"//"+url.host+"/navmap.json", init);
 
     fetch(request)
     .then(function(response){
@@ -112,7 +112,7 @@ browser.omnibox.onInputEntered.addListener((name, disposition) => {
     if( activeInstance.state !== STATE_LOADED ) return;
     
     let target = activeInstance.url.protocol + "//" 
-                + activeInstance.url.hostname
+                + activeInstance.url.host
                 + activeInstance.routes[name][ROUTE_TARGET];
     
     switch (disposition) {
