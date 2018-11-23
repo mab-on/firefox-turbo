@@ -13,14 +13,17 @@
     "permissions": [
       "*://*/navmap.json",
       "webNavigation",
-      "tabs"
+      "tabs",
+      "storage"
     ],
 
     "omnibox": { "keyword" : ">" },
 
     "background": {
       "scripts": [
+        "const.js",
         "search/source/search.js",
+        "remotes.js",
         "background.js"
       ]
     },
@@ -31,7 +34,11 @@
       "16": "icons/turbo-30.png",
       "48": "icons/turbo-30.png",
       "96": "icons/turbo-30.png"
+    },
+
+    "browser_action": {
+      "default_icon": "icons/turbo-30.png"
     }
-    
+
   }
   

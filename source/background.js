@@ -1,12 +1,5 @@
 
 
-const ROUTE_DESCRIPTION = 0;
-const ROUTE_TAGS = 1;
-const ROUTE_TARGET = 2;
-
-const STATE_UNINITIALIZED = 0;
-const STATE_EMPTY = 1;
-const STATE_LOADED = 2;
 
 var instances = {};
 function getInstance(url) {
@@ -34,6 +27,33 @@ function setInstance(url) {
     });
 }
 
+function loadIndex(navimap) {
+    if(typeof navimap === "object" && navimap.hasOwnProperty("route") && typeof navimap.route === "object") {
+        let routenames = Object.keys(navimap.route)
+        activeInstance.routes = navimap.route
+        for(let i in routenames) {
+            let name = routenames[i]
+            if(
+                navimap.route[name].length === 3 
+                && typeof navimap.route[name][ROUTE_DESCRIPTION] === "string"
+                && navimap.route[name][ROUTE_TAGS].constructor === Array
+                && typeof navimap.route[name][ROUTE_TARGET] === "string"
+            ) {
+                activeInstance.index.add(name, navimap.route[name][ROUTE_DESCRIPTION])
+                let tags = navimap.route[name][ROUTE_TAGS]
+                for(let t in tags) {
+                    let tag = tags[t]
+                    if(typeof tag === "string") activeInstance.index.add(name , tag)
+                }
+            }
+        }
+        activeInstance.state = STATE_LOADED
+    }
+    else {
+        activeInstance.state = STATE_EMPTY
+    }
+}
+
 function loadTurbo(url) {
     
     let headers = new Headers({"Accept": "application/json"});
@@ -44,32 +64,7 @@ function loadTurbo(url) {
     .then(function(response){
         return response.json()
     })
-    .then(function(response) {
-        if(typeof response === "object" && response.hasOwnProperty("route") && typeof response.route === "object") {
-            let routenames = Object.keys(response.route)
-            activeInstance.routes = response.route
-            for(let i in routenames) {
-                let name = routenames[i]
-                if(
-                    response.route[name].length === 3 
-                    && typeof response.route[name][ROUTE_DESCRIPTION] === "string"
-                    && response.route[name][ROUTE_TAGS].constructor === Array
-                    && typeof response.route[name][ROUTE_TARGET] === "string"
-                ) {
-                    activeInstance.index.add(name, response.route[name][ROUTE_DESCRIPTION])
-                    let tags = response.route[name][ROUTE_TAGS]
-                    for(let t in tags) {
-                        let tag = tags[t]
-                        if(typeof tag === "string") activeInstance.index.add(name , tag)
-                    }
-                }
-            }
-            activeInstance.state = STATE_LOADED
-        }
-        else {
-            activeInstance.state = STATE_EMPTY
-        }
-    });
+    .then(loadIndex);
 }
 
 browser.tabs.onUpdated.addListener(function(tabId, changeInfo, tabInfo) {
@@ -85,7 +80,7 @@ browser.webNavigation.onCompleted.addListener(evt => {
       return;
     }
     setInstance(new URL(evt.url));
-  });
+});
 
 // Update the suggestions whenever the input is changed.
 browser.omnibox.onInputChanged.addListener((text,suggest) => {
@@ -127,7 +122,13 @@ browser.omnibox.onInputEntered.addListener((name, disposition) => {
             break;
     }   
 });
-  
-  
-  
 
+
+
+browser.browserAction.onClicked.addListener(() => {
+    browser.tabs.create({
+        "url": "/views/remotes.html"
+    });
+});
+   
+  
