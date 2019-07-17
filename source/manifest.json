@@ -9,7 +9,7 @@
       }
     },
     "description": "superfast navigation via fulltext search",
-  
+
     "permissions": [
       "*://*/navmap.json",
       "webNavigation",
@@ -28,6 +28,14 @@
       ]
     },
 
+    "content_scripts": [
+	  {
+	    "matches": ["<all_urls>"],
+	    "js": ["search/source/searchui.js","content.js"],
+	    "css": ["content.css"]
+	  }
+	],
+
     "icons": {
       "32": "icons/turbo-30.png",
       "8": "icons/turbo-30.png",
@@ -38,7 +46,15 @@
 
     "browser_action": {
       "default_icon": "icons/turbo-30.png"
-    }
+    },
+
+    "commands": {
+	  "toggle-feature": {
+	    "suggested_key": {
+	      "default": "Ctrl+Shift+F"
+	    },
+	    "description": "Send a 'toggle-feature' event"
+	  }
+	}
 
   }
-  

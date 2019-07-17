@@ -1,0 +1,23 @@
+.SearchUI_SuggestionList {
+	padding: 0px;
+	list-style-type: none;
+}
+
+li.odd {
+	background-color: #000;
+}
+li.even{
+	background-color: #222;
+}
+
+.SearchUI_Suggestion {
+	padding: 0px;
+	display: block;
+}
+.SearchUI_Suggestion:hover {
+	background-color: #704020
+}
+a:focus, a:active {
+  color: green;
+  background-color: #704020
+}
